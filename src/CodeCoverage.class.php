@@ -22,15 +22,11 @@ class CodeCoverage {
 	 * Constructor
 	 * @param string $coverageFile 
 	 */
-	public function __construct($coverageFile = './coverage.dat')
+	public function __construct($coverageFile, $skipPath)
 	{
 		$this->coverageFile = $coverageFile;
+		$this->skipPath = $skipPath;
 		
-		// Find the skip path
-		$this->skipPath = substr(__DIR__, 0, strpos(__DIR__, '/codeCoverage'));
-		$this->skipPath = explode('/',$this->skipPath);
-		array_pop($this->skipPath);
-		$this->skipPath = implode('/', $this->skipPath);
 		
 		if(!file_exists($this->coverageFile)) {
 			$this->createCoverageFile();
