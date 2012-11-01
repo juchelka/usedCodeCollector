@@ -6,60 +6,50 @@
  * @author Tomas Horacek <t.horacek@pixvalley.com>
  */
 class CodeCoverage {
-	
+
 	/**
 	 * Full path to the coverage file
 	 * @var string
 	 */
 	private $coverageFile;
-	
 	private $skipPath;
-	
 	private $showCoverage = false;
-	
-	
+
 	/**
 	 * Constructor
 	 * @param string $coverageFile 
 	 */
-	public function __construct($coverageFile, $skipPath)
-	{
+	public function __construct($coverageFile, $skipPath) {
 		$this->coverageFile = $coverageFile;
-		$this->skipPath = $skipPath;
-		
-		
-		if(!file_exists($this->coverageFile)) {
+		$this->skipPath = realpath($skipPath);
+
+
+		if (!file_exists($this->coverageFile)) {
 			$this->createCoverageFile();
 		}
-		
-		if(isset($_GET['showCoverage'])) {
+
+		if (isset($_GET['showCoverage'])) {
 			$this->showCoverage = true;
 		}
 	}
-	
-	
+
 	/**
 	 * Creatre Coverage File 
 	 */
-	private function createCoverageFile()
-	{
+	private function createCoverageFile() {
 		$f = fopen($this->coverageFile, "w+");
 		fclose($f);
 	}
-	
-	
+
 	/**
 	 * Encode array in format better reading in Java
 	 * @param array $coverage
 	 * @return array 
 	 */
-	public static function encode($coverage)
-	{
+	public static function encode($coverage) {
 		$encodedConverted = array();
-		if(is_array($coverage))
-		{
-			foreach($coverage as $key => $value)
-			{
+		if (is_array($coverage)) {
+			foreach ($coverage as $key => $value) {
 				$encodedConverted[] = array(
 					'file' => $key,
 					'lines' => array_keys($value),
@@ -69,7 +59,6 @@ class CodeCoverage {
 		return $encodedConverted;
 	}
 
-	
 	/**
 	 * Decode array readable in java plugin to original format returned from
 	 * xdebug_start_code_coverage();
@@ -77,19 +66,15 @@ class CodeCoverage {
 	 * @param array $aEncodedCoverage
 	 * @return array 
 	 */
-	public static function decode($encodedCoverage)
-	{
+	public static function decode($encodedCoverage) {
 		$decodedCoverage = array();
-		if(is_array($encodedCoverage)) 
-		{
-			foreach($encodedCoverage as $fileCoverage)
-			{
+		if (is_array($encodedCoverage)) {
+			foreach ($encodedCoverage as $fileCoverage) {
 				$decodedCoverage[$fileCoverage['file']] = array_fill_keys($fileCoverage['lines'], 1);
 			}
 		}
 		return $decodedCoverage;
 	}
-	
 
 	/**
 	 * Trim File Name
@@ -98,30 +83,28 @@ class CodeCoverage {
 	 * @param string $sFileName
 	 * @return string 
 	 */
-	private function trimFileName($fileName)
-	{	
+	private function trimFileName($fileName) {
 		$exploded = explode('(', $fileName);
 		$tmpFileName = array_shift($exploded);
-		
+
 		$fileName = !is_null($tmpFileName) ? $tmpFileName : $fileName;
-		$fileName = substr($fileName, strlen($this->skipPath));
-		
+		if (substr($fileName, 0, strlen($this->skipPath)) == $this->skipPath) {
+			$fileName = substr($fileName, strlen($this->skipPath));
+		}
+
 		return $fileName;
 	}
-	
-	
+
 	/**
 	 * File read and truncate it to 0 lenght for future usage
 	 * @return string
 	 */
-	private function fileRead($truncate = false)
-	{
+	private function fileRead($truncate = false) {
 		$data = '';
-		if(($fileSize = filesize($this->coverageFile)) > 0)
-		{	
+		if (($fileSize = filesize($this->coverageFile)) > 0) {
 			$f = fopen($this->coverageFile, 'r+');
 			$data = fread($f, $fileSize);
-			if($truncate) {
+			if ($truncate) {
 				ftruncate($f, 0);
 			}
 			fclose($f);
@@ -129,47 +112,39 @@ class CodeCoverage {
 
 		return $data;
 	}
-	
-	
+
 	/**
 	 * @param string $coverage 
 	 */
-	private function fileWrite($coverage)
-	{
+	private function fileWrite($coverage) {
 		$f = fopen($this->coverageFile, 'w+');
 		fwrite($f, $coverage);
 		fclose($f);
 	}
-	
-	
-	
+
 	/**
 	 * Start Coverage 
 	 */
-	public function start()
-	{
+	public function start() {
 		xdebug_start_code_coverage();
 	}
-	
-	
+
 	/**
 	 * Stop Coverage 
 	 */
-	public function stop()
-	{
+	public function stop() {
 		$coverage = xdebug_get_code_coverage();
-		
+
 		$prevCoverage = $this->decode(json_decode($this->fileRead(true), true));
 
 		//
 		// Coverage merging
 		//
 		$tempCoverage = array();
-		foreach($coverage as $key => $value) {
-			$key = $this->trimFileName($key);	// File name
-
+		foreach ($coverage as $key => $value) {
+			$key = $this->trimFileName($key); // File name
 			// Merge coveraged lines from current coverage and previous coverage
-			if(isset($data[$key])) {
+			if (isset($data[$key])) {
 				$tempCoverage[$key] = $value + $prevCoverage[$key];
 				unset($prevCoverage[$key]);
 			} else {
@@ -177,28 +152,26 @@ class CodeCoverage {
 			}
 		}
 		// Attend the new coverage files
-		if(isset($prevCoverage) && is_array($prevCoverage)) {
-			$coverage = $tempCoverage + $prevCoverage;	
+		if (isset($prevCoverage) && is_array($prevCoverage)) {
+			$coverage = $tempCoverage + $prevCoverage;
 		} else {
 			$coverage = $tempCoverage;
 		}
-		
+
 		$coverage = json_encode($this->encode($coverage));
 
 		$this->fileWrite($coverage);
-		
-		
-		if($this->showCoverage) {
+
+
+		if ($this->showCoverage) {
 			$this->show();
 		}
 	}
-	
-	
-	private function show()
-	{
+
+	private function show() {
 		$coverage = $this->decode(json_decode($this->fileRead(), true));
-		
-		$analysator = new Analysator($coverage, "/(.*)(".$_GET['pattern'].")(.*)/");
+
+		$analysator = new Analysator($coverage, "/(.*)(" . $_GET['pattern'] . ")(.*)/");
 
 		$output = '
 			<link rel="stylesheet" href="http://code.jquery.com/ui/1.9.0/themes/base/jquery-ui.css" />
@@ -232,28 +205,27 @@ class CodeCoverage {
 		$totalUsed = 0;
 		$totalSourceLines = 0;
 
-		foreach($analysator->files as $file)
-		{
+		foreach ($analysator->files as $file) {
 			$output .= '
 				<div class="title">
-					<span class="fileName">'.$file->name.'</span>
-					<span class="percent">'.$file->percentateUsed.'%</span>
-					<span class="usage">'.$file->used.' / '.$file->sourceLines.'</span>
+					<span class="fileName">' . $file->name . '</span>
+					<span class="percent">' . $file->percentateUsed . '%</span>
+					<span class="usage">' . $file->used . ' / ' . $file->sourceLines . '</span>
 				</div>
 				<div class="code">
-					<pre class="brush: php highlight:'.$file->highlight.'">'.htmlspecialchars($file->source).'</pre> 
+					<pre class="brush: php highlight:' . $file->highlight . '">' . htmlspecialchars($file->source) . '</pre> 
 				</div>
 				';
-		
+
 			$totalUsed += $file->used;
 			$totalSourceLines += $file->sourceLines;
 		}
-		
+
 		$output .= '
 				<div class="total">
-					<span>Used files: '.$analysator->numFiles.'</span>
-					<span class="percent">'.round($totalUsed / $totalSourceLines * 100, 1).'%</span>
-					<span class="usage">'.$totalUsed.' / '.$totalSourceLines.'</span>
+					<span>Used files: ' . $analysator->numFiles . '</span>
+					<span class="percent">' . round($totalUsed / $totalSourceLines * 100, 1) . '%</span>
+					<span class="usage">' . $totalUsed . ' / ' . $totalSourceLines . '</span>
 				</div>
 			</div>
 	
@@ -266,65 +238,65 @@ class CodeCoverage {
 				});
 			</script>
 			';
-		
+
 		echo $output;
 	}
-	
+
 }
 
-
 class File {
+
 	public $name;
 	public $source;
 	public $highlight = array();
-	
 	public $used = 0;
 	public $percentateUsed = 0;
 	public $sourceLines = 0;
-	
+
 	public function __construct($name, $source, $highlight) {
 		$this->name = $name;
 		$this->source = $source;
-		
+
 		$this->used = count($highlight);
 		$this->sourceLines = count(explode("\n", $source));
 		$this->percentateUsed = round(($this->used / $this->sourceLines) * 100, 1);
-		
-		$this->highlight = '['.implode(', ',array_keys($highlight)).']';		
+
+		$this->highlight = '[' . implode(', ', array_keys($highlight)) . ']';
 	}
+
 }
 
 class Analysator {
+
 	public $files = array();
 	public $numFiles = 0;
 	private $pattern;
-	
-	public function __construct($coverage, $pattern)
-	{
+
+	public function __construct($coverage, $pattern) {
 		$this->pattern = $pattern;
-		
+
 		$prefix = substr(__DIR__, 0, strpos(__DIR__, '/fo-monnier'));
-		
-		foreach($coverage as $key => $value) {
-			$key = $prefix.$key;
-			
-			if(file_exists($key)) {
+
+		foreach ($coverage as $key => $value) {
+			$key = $prefix . $key;
+
+			if (file_exists($key)) {
 				$f = fopen($key, 'r');
 				$source = fread($f, filesize($key));
 				$this->files[] = new File($key, $source, $value);
 			}
 		}
-		
+
 		$this->numFiles = count($this->files);
 	}
-	
-	public function filter($sourceData)
-	{
-		foreach($sourceData as $key => $value) {
-			if(!preg_match($this->pattern, $key)) {
+
+	public function filter($sourceData) {
+		foreach ($sourceData as $key => $value) {
+			if (!preg_match($this->pattern, $key)) {
 				unset($sourceData[$key]);
 			}
 		}
 		return $sourceData;
-	}	
+	}
+
 }
