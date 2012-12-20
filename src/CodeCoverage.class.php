@@ -14,15 +14,18 @@ class CodeCoverage {
 	private $coverageFile;
 	private $skipPath;
 	private $showCoverage = false;
+	private $prependDir = "";
 
 	/**
 	 * Constructor
 	 * @param string $coverageFile 
+	 * @param string skipped pathin final file names
+	 * @param string prepended directory name - used when basedir restriction disallows to make it with skipPath
 	 */
-	public function __construct($coverageFile, $skipPath) {
+	public function __construct($coverageFile, $skipPath, $prependDir = "") {
 		$this->coverageFile = $coverageFile;
 		$this->skipPath = realpath($skipPath);
-
+		$this->prependDir = $prependDir;
 
 		if (!file_exists($this->coverageFile)) {
 			$this->createCoverageFile();
@@ -89,7 +92,7 @@ class CodeCoverage {
 
 		$fileName = !is_null($tmpFileName) ? $tmpFileName : $fileName;
 		if (substr($fileName, 0, strlen($this->skipPath)) == $this->skipPath) {
-			$fileName = substr($fileName, strlen($this->skipPath));
+			$fileName = $this->prependDir.substr($fileName, strlen($this->skipPath));
 		}
 
 		return $fileName;
